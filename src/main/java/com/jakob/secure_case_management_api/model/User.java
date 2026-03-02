@@ -1,9 +1,16 @@
 package com.jakob.secure_case_management_api.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "users")
 public class User {
@@ -15,13 +22,15 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @Getter
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Getter
     @Column(nullable = false)
     private String password;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
