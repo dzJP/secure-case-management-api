@@ -33,6 +33,8 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(
             @RequestBody LoginRequest request) {
 
+        System.out.println("LOGIN ENDPOINT HIT");
+
         return ResponseEntity.ok(authService.login(request));
     }
 
