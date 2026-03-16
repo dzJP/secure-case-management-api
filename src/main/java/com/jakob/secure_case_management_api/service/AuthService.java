@@ -1,6 +1,7 @@
 package com.jakob.secure_case_management_api.service;
 
 import com.jakob.secure_case_management_api.dto.*;
+import com.jakob.secure_case_management_api.model.RefreshToken;
 import com.jakob.secure_case_management_api.model.Role;
 import com.jakob.secure_case_management_api.model.User;
 import com.jakob.secure_case_management_api.repository.RoleRepository;
@@ -20,18 +21,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -68,8 +71,12 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        String token = jwtService.generateToken(user);
+        String accessToken = jwtService.generateToken(user);
 
-        return new AuthResponse(token);
+
+        RefreshToken refreshToken =
+                refreshTokenService.createRefreshToken(user.getId());
+
+        return new AuthResponse(accessToken, refreshToken.getToken());
     }
 }
