@@ -3,7 +3,6 @@
 Production-style backend REST API for managing cases, assignments, and comments with secure authentication and role-based access control.
 
 This project demonstrates real-world backend engineering practices including JWT authentication, Dockerized deployment, layered architecture, and secure API design.
-Tech Stack
 
 ## Tech Stack
 

@@ -6,15 +6,25 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+@Entity
+@Table(
+        name = "cases",
+        indexes = {
+                @Index(name = "idx_case_status", columnList = "status"),
+                @Index(name = "idx_case_priority", columnList = "priority"),
+                @Index(name = "idx_case_assigned_to", columnList = "assigned_to_id"),
+                @Index(name = "idx_case_created_by", columnList = "created_by_id")
+        }
+)
 @Getter
 @Setter
-@Entity
-@Table(name = "cases")
 @SQLDelete(sql = "UPDATE cases SET deleted = true WHERE id=?")
+@SQLRestriction("deleted = false")
 public class Case {
 
     @Id
@@ -22,7 +32,7 @@ public class Case {
     private Long id;
 
     @Version
-    private Long version; // optimistic locking
+    private Long version;
 
     @Column(nullable = false)
     private String title;
@@ -32,11 +42,11 @@ public class Case {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CaseStatus status;
+    private CaseStatus status = CaseStatus.OPEN;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CasePriority priority;
+    private CasePriority priority = CasePriority.MEDIUM;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false)
@@ -54,5 +64,4 @@ public class Case {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-
 }
