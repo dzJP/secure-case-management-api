@@ -1,11 +1,11 @@
 package com.jakob.secure_case_management_api.service;
 
-import com.jakob.secure_case_management_api.dto.CaseCreateRequest;
-import com.jakob.secure_case_management_api.dto.CaseResponse;
-import com.jakob.secure_case_management_api.dto.CaseUpdateRequest;
+import com.jakob.secure_case_management_api.dto.*;
 import com.jakob.secure_case_management_api.exception.ResourceNotFoundException;
+import com.jakob.secure_case_management_api.mapper.CommentMapper;
 import com.jakob.secure_case_management_api.model.*;
 import com.jakob.secure_case_management_api.repository.CaseAuditLogRepository;
+import com.jakob.secure_case_management_api.repository.CaseCommentRepository;
 import com.jakob.secure_case_management_api.repository.CaseRepository;
 import com.jakob.secure_case_management_api.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -14,17 +14,22 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class CaseService {
 
     private final CaseRepository caseRepository;
+    private final CaseCommentRepository caseCommentRepository;
     private final UserRepository userRepository;
     private final CaseAuditLogRepository auditLogRepository;
 
     public CaseService(CaseRepository caseRepository,
+                       CaseCommentRepository caseCommentRepository,
                        CaseAuditLogRepository auditLogRepository,
                        UserRepository userRepository) {
         this.caseRepository = caseRepository;
+        this.caseCommentRepository = caseCommentRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
     }
@@ -52,7 +57,6 @@ public class CaseService {
         validateTransition(oldStatus, newStatus);
 
         caseEntity.setStatus(newStatus);
-        caseRepository.save(caseEntity);
 
         auditLogRepository.save(
                 CaseAuditLog.builder()
@@ -184,7 +188,7 @@ public class CaseService {
             throw new AccessDeniedException("Not allowed to delete case");
         }
 
-        caseEntity.setDeleted(true);
+        caseRepository.delete(caseEntity);
     }
 
     @Transactional
@@ -204,13 +208,69 @@ public class CaseService {
             throw new IllegalStateException("Closed cases cannot be edited");
         }
 
-        caseEntity.setTitle(request.getTitle());
-        caseEntity.setDescription(request.getDescription());
+        if (request.getTitle() != null) {
+            caseEntity.setTitle(request.getTitle());
+        }
 
         if (request.getPriority() != null) {
             caseEntity.setPriority(request.getPriority());
         }
 
+        if (request.getDescription() != null) {
+            caseEntity.setDescription(request.getDescription());
+        }
+
         return mapToResponse(caseEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getCaseComments(Long caseId, User currentUser) {
+
+        Case caseEntity = caseRepository.findByIdAndDeletedFalse(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Case not found"));
+
+        boolean allowed =
+                caseEntity.getCreatedBy().getId().equals(currentUser.getId()) ||
+                        (caseEntity.getAssignedTo() != null &&
+                                caseEntity.getAssignedTo().getId().equals(currentUser.getId())) ||
+                        currentUser.hasRole("ROLE_ADMIN");
+
+        if (!allowed) {
+            throw new AccessDeniedException("Not allowed to view comments");
+        }
+
+        return caseCommentRepository.findByCaseEntityId(caseId)
+                .stream()
+                .map(CommentMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public CommentResponse addComment(Long caseId,
+                                      CommentCreateRequest request,
+                                      User currentUser) {
+
+        Case caseEntity = caseRepository.findByIdAndDeletedFalse(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Case not found"));
+
+        boolean allowed =
+                caseEntity.getCreatedBy().getId().equals(currentUser.getId()) ||
+                        (caseEntity.getAssignedTo() != null &&
+                                caseEntity.getAssignedTo().getId().equals(currentUser.getId())) ||
+                        currentUser.hasRole("ROLE_ADMIN");
+
+        if (!allowed) {
+            throw new AccessDeniedException("Not allowed to comment on this case");
+        }
+
+        CaseComment comment = CaseComment.builder()
+                .caseEntity(caseEntity)
+                .author(currentUser)
+                .content(request.getContent())
+                .build();
+
+        CaseComment saved = caseCommentRepository.save(comment);
+
+        return CommentMapper.toResponse(saved);
     }
 }
